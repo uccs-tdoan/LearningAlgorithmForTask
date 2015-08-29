@@ -8,12 +8,11 @@ output: html_document
 Prepare to load corpus data 
 
 ```{r}
+setwd("C:/aclImdb")
 library(tm)
-path_to_neg_folder <- "C:/aclImdb/train/neg"
-path_to_pos_folder <- "C:/aclImdb/train/pos"
 
-nb_pos <- Corpus(DirSource(path_to_pos_folder), readerControl = list(language = "en"))
-nb_neg <- Corpus(DirSource(path_to_neg_folder),readerControl = list(language = "en"))
+nb_pos <- Corpus(DirSource("./train/pos"), readerControl = list(language = "en"))
+nb_neg <- Corpus(DirSource("./train/neg"),readerControl = list(language = "en"))
 nb_all <- c(nb_pos, nb_neg, recursive = T)
 
 meta(nb_all[[1]])
@@ -30,7 +29,7 @@ nb_all <- tm_map(nb_all, content_transformer(removeWords), stopwords("english"))
 nb_all <- tm_map(nb_all, content_transformer(stripWhitespace))
 
 nb_dtm <- DocumentTermMatrix(nb_all)
-nb_dtm <- removeSparseTerms(x = nb_dtm, sparse = 0.99)
+nb_dtm <- removeSparseTerms(x = nb_dtm, sparse = 0.98)
 
 dim(nb_dtm)
 inspect(nb_dtm[10:16, 1:6])
