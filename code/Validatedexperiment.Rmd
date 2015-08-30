@@ -11,31 +11,31 @@ Prepare to load corpus data
 setwd("C:/aclImdb")
 library(tm)
 
-nb_pos <- Corpus(DirSource("./train/pos"), readerControl = list(language = "en"))
-nb_neg <- Corpus(DirSource("./train/neg"),readerControl = list(language = "en"))
-nb_all <- c(nb_pos, nb_neg, recursive = T)
+df_pos <- Corpus(DirSource("./train/pos"), readerControl = list(language = "en"))
+df_neg <- Corpus(DirSource("./train/neg"),readerControl = list(language = "en"))
+df <- c(df_pos, df_neg, recursive = T)
 
-meta(nb_all[[1]])
-ids <- sapply( 1 : length(nb_all), function(x) meta(nb_all[[x]], "id"))
+meta(df[[1]])
+ids <- sapply( 1 : length(df), function(x) meta(df[[x]], "id"))
 
 head(ids)
 scores <- as.numeric(sapply(ids, function(x) sub("[0-9]+_([0-9]+)\\.txt", "\\1", x)))
 scores <- factor(ifelse(scores >= 5, "positive", "negative"))
 
-nb_all <- tm_map(nb_all, content_transformer(removeNumbers))
-nb_all <- tm_map(nb_all, content_transformer(removePunctuation))
-nb_all <- tm_map(nb_all, content_transformer(tolower))
-nb_all <- tm_map(nb_all, content_transformer(removeWords), stopwords("english"))
-nb_all <- tm_map(nb_all, content_transformer(stripWhitespace))
+df <- tm_map(df, content_transformer(removeNumbers))
+df <- tm_map(df, content_transformer(removePunctuation))
+df <- tm_map(df, content_transformer(tolower))
+df <- tm_map(df, content_transformer(removeWords), stopwords("english"))
+df <- tm_map(df, content_transformer(stripWhitespace))
 
-nb_dtm <- DocumentTermMatrix(nb_all)
-nb_dtm <- removeSparseTerms(x = nb_dtm, sparse = 0.98)
+df <- DocumentTermMatrix(df)
+df <- removeSparseTerms(x = df, sparse = 0.99)
 
-dim(nb_dtm)
-inspect(nb_dtm[10:16, 1:6])
+dim(df)
+inspect(df[10:16, 1:6])
 
 
-nb_dtm <- weightBin(nb_dtm)
+df <- weightBin(df)
 
 
 
@@ -44,7 +44,7 @@ nb_dtm <- weightBin(nb_dtm)
 Convert into data frame
 
 ```{r}
- nb_df <- as.data.frame(as.matrix(nb_dtm))
+ df <- as.data.frame(as.matrix(df))
 ```
 Load library
 ```{r}
@@ -56,15 +56,15 @@ set.seed(12345)
 Create train and test set
 
 ```{r}
-nb_sampling_vector <- createDataPartition(scores, p = 0.80, list = FALSE)
-nb_df_train <- nb_df[nb_sampling_vector,]
-nb_df_test <- nb_df[-nb_sampling_vector,]
+Idx <- createDataPartition(scores, p = 0.80, list = FALSE)
+df_train <- df[Idx,]
+df_test <- df[-Idx,]
 
 
-scores_train = scores[nb_sampling_vector]
-scores_test = scores[-nb_sampling_vector]
+scores_train = scores[Idx]
+scores_test = scores[-Idx]
 
-df_train <-  as.data.frame(nb_df_train)
+df_train <-  as.data.frame(df_train)
 
 df_train$class <- scores_train
 
@@ -76,10 +76,10 @@ accuracy =  0.8158
 
 ```{r}
 
-nb_model <- naiveBayes(nb_df_train, scores_train)
-nb_train_predictions <- predict(nb_model, nb_df_train)
+nb_model <- naiveBayes(df_train, scores_train)
+nb_train_predictions <- predict(nb_model, df_train)
 
-nb_test_predictions <- predict(nb_model, nb_df_test)
+nb_test_predictions <- predict(nb_model, df_test)
 mean(nb_test_predictions == scores_test)
 
 ```
@@ -91,9 +91,9 @@ accuracy = 0.834
 ```{r}
 library("randomForest")
 
-rf<- randomForest(nb_df_train, scores_train)
+rf<- randomForest(df_train, scores_train)
 
-rf_test_prediction <- predict(rf, nb_df_test, type="class")
+rf_test_prediction <- predict(rf, df_test, type="class")
 mean(rf_test_prediction == scores_test)
 ```
 
@@ -103,9 +103,9 @@ accuracy = 0.8578
 ```{r}
 
 library(e1071)
-SVM_model <- svm(nb_df_train, scores_train,type='C',kernel='radial',probability = FALSE)
+SVM_model <- svm(df_train, scores_train,type='C',kernel='radial',probability = FALSE)
 
-SVM_test_prediction <- predict(SVM_model, nb_df_test,type="class")
+SVM_test_prediction <- predict(SVM_model, df_test,type="class")
 mean(SVM_test_prediction == scores_test)
 
 ```
@@ -116,13 +116,20 @@ accuracy = 0.8188
 ```{r}
 library(earth)
 
-mars_model <-  earth(nb_df_train, scores_train)
-mars_test_prediction <- predict(mars_model, nb_df_test,type="class")
+mars_model <-  earth(df_train, scores_train)
+mars_test_prediction <- predict(mars_model, df_test,type="class")
 mean(mars_test_prediction == scores_test)
+```
+Boost tree with gbm
+
+```{r}
+library(gbm)
+boost <- gbm(class~. , data=df_train, distribution = 'gaussian', 
+             n.trees = 5000,   interaction.depth = 4)
 
 
 ```
- gbm
+ gradient boost m
 
 ```{r}
 library(gbm)
