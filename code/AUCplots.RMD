@@ -1,0 +1,103 @@
+---
+title: "AUCplots"
+author: "TriDoan"
+date: "Saturday, September 12, 2015"
+output: pdf_document
+---
+
+This is R script to plot multiple AUCs in predict movie sentiment.
+
+```{r}
+library(dplyr)
+setwd("c:/AAAI/AUC")
+df <- read.csv("Bagging.csv",stringsAsFactors=FALSE)
+
+```
+
+Extract needed field
+
+```{r, echo=FALSE}
+actual  <- data.frame(t(sapply(df[,2], function(y) strsplit(y,split=":")[[1]])))
+predicted <- data.frame(t(sapply(df[,3], function(y) strsplit(y,split=":")[[1]])))
+
+bagging.labels  <- as.data.frame(cbind(df$inst,actual[,2],df[,ncol(df)]))
+row.names(bagging.labels) <- seq_len(nrow(bagging.labels))
+colnames(bagging.labels) <- c("inst","label","predict")
+
+
+#class.predicted  <- as.data.frame(cbind(df$inst,predict[,2],df[,ncol(df)]))
+#row.names(bagging.predicted) <- seq_len(nrow(bagging.predicted))
+
+rm(actual)
+rm(predicted)
+
+write.table(bagging.labels,file="baggingPrediction.csv",sep=",",row.names=FALSE,col.names=TRUE)    
+```
+
+Similarly, for Naive Bayes
+``{r}
+df <- read.csv("naiveBayes.csv",stringsAsFactors=FALSE)
+actual  <- data.frame(t(sapply(df[,2], function(y) strsplit(y,split=":")[[1]])))
+
+NaiveBayes.labels  <- as.data.frame(cbind(df$inst,actual[,2],df[,ncol(df)]))
+row.names(NaiveBayes.labels) <- seq_len(nrow(NaiveBayes.labels))
+colnames(NaiveBayes.labels) <- c("inst","label","predict")
+write.table(NaiveBayes.labels,file="naivebayes.csv",sep=",",row.names=FALSE,col.names=TRUE)    
+
+
+rm(actual)
+
+```
+
+Similarly, for Logistic
+``{r}
+df <- read.csv("logistic.csv",stringsAsFactors=FALSE)
+actual  <- data.frame(t(sapply(df[,2], function(y) strsplit(y,split=":")[[1]])))
+
+Logistic.labels  <- as.data.frame(cbind(df$inst,actual[,2],df[,ncol(df)]))
+row.names(Logistic.labels) <- seq_len(nrow(Logistic.labels))
+colnames(Logistic.labels) <- c("inst","label","predict")
+write.table(Logistic.labels,file="logisticPrediction.csv",sep=",",row.names=FALSE,col.names=TRUE)    
+
+rm(actual)
+```
+
+Similarly, for Random Forest
+``{r}
+df <- read.csv("randomForest.csv",stringsAsFactors=FALSE)
+actual  <- data.frame(t(sapply(df[,2], function(y) strsplit(y,split=":")[[1]])))
+
+randomForest.labels  <- as.data.frame(cbind(df$inst,actual[,2],df[,ncol(df)]))
+row.names(randomForest.labels) <- seq_len(nrow(randomForest.labels))
+colnames(randomForest.labels) <- c("inst","label","predict")
+write.table(randomForest.labels,file="randomForestPrediction.csv",sep=",",row.names=FALSE,col.names=TRUE)    
+
+rm(actual)
+
+```
+
+Similarly, for SVM
+``{r}
+df <- read.csv("SVM.csv",stringsAsFactors=FALSE)
+actual  <- data.frame(t(sapply(df[,2], function(y) strsplit(y,split=":")[[1]])))
+
+svm.labels  <- as.data.frame(cbind(df$inst,actual[,2],df[,ncol(df)]))
+row.names(svm.labels) <- seq_len(nrow(svm.labels))
+colnames(svm.labels) <- c("inst","label","predict")
+write.table(svm.labels,file="svmPrediction.csv",sep=",",row.names=FALSE,col.names=TRUE)    
+
+rm(actual)
+```
+plot multiple AUC of multiple classifiers 
+```{r}
+library(ROCR)
+data(ROCR.simple)
+pred <- prediction( ROCR.simple$predictions, ROCR.simple$labels )
+pred2 <- prediction(abs(ROCR.simple$predictions + 
+                        rnorm(length(ROCR.simple$predictions), 0, 0.1)), 
+        ROCR.simple$labels)
+perf <- performance( pred, "tpr", "fpr" )
+perf2 <- performance(pred2, "tpr", "fpr")
+plot( perf, colorize = TRUE)
+plot(perf2, add = TRUE, colorize = TRUE)
+
