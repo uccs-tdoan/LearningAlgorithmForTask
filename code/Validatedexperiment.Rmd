@@ -15,7 +15,7 @@ df_pos <- Corpus(DirSource("./train/pos"), readerControl = list(language = "en")
 df_neg <- Corpus(DirSource("./train/neg"),readerControl = list(language = "en"))
 df <- c(df_pos, df_neg, recursive = T)
 
-meta(df[[1]])
+meta(df[[1]])test
 ids <- sapply( 1 : length(df), function(x) meta(df[[x]], "id"))
 
 head(ids)
@@ -68,6 +68,7 @@ df_train <-  as.data.frame(df_train)
 
 df_train$class <- scores_train
 
+ write.table(df,file="movieSentiments.csv",sep=",",row.names=FALSE,col.names=TRUE)    
 ```
 
 Without further preprocessing data, using Naive Bayes we can achieve
@@ -75,24 +76,26 @@ Without further preprocessing data, using Naive Bayes we can achieve
 accuracy =  0.8158
 
 ```{r}
-
-nb_model <- naiveBayes(df_train, scores_train)
-nb_train_predictions <- predict(nb_model, df_train)
+start.time <- Sys.time()
+nb_model <- naiveBayes(df_train[,-c(239)], scores_train)
+#nb_train_predictions <- predict(nb_model, df_train[,-c(239)])
 
 nb_test_predictions <- predict(nb_model, df_test)
+
+time.taken <- Sys.time() - start.time
 mean(nb_test_predictions == scores_test)
 
 ```
 Now we check other model
 
 1. Random Forest
-accuracy = 0.834
+accuracy = 0.834  2.381905 hours
 
 ```{r}
 library("randomForest")
-
-rf<- randomForest(df_train, scores_train)
-
+start.time <- Sys.time()
+rf<- randomForest(df_train[,-c(239)], scores_train)
+time.taken <- Sys.time() - start.time
 rf_test_prediction <- predict(rf, df_test, type="class")
 mean(rf_test_prediction == scores_test)
 ```
@@ -103,29 +106,56 @@ accuracy = 0.8578
 ```{r}
 
 library(e1071)
-SVM_model <- svm(df_train, scores_train,type='C',kernel='radial',probability = FALSE)
-
+start.time <- Sys.time()
+SVM_model <- svm(df_train[,-c(239)], scores_train,type='C',kernel='radial',probability = FALSE)
 SVM_test_prediction <- predict(SVM_model, df_test,type="class")
+time.taken <- Sys.time() - start.time 
 mean(SVM_test_prediction == scores_test)
 
 ```
 3. Multivariate Adaptive Regression Splines
 
-accuracy = 0.8188
+accuracy = 0.8188  14.98963 mins
 
 ```{r}
 library(earth)
-
-mars_model <-  earth(df_train, scores_train)
+start.time <- Sys.time()
+mars_model <-  earth(df_train[,-c(239)], scores_train)
 mars_test_prediction <- predict(mars_model, df_test,type="class")
+time.taken <- Sys.time() - start.time
 mean(mars_test_prediction == scores_test)
+
 ```
-Boost tree with gbm
+Bagged Tree with caret 
+```{r}
+start.time <- Sys.time()
+baggedModel <- train(class~., data=df_train, method="treebag", B=5,
+train_control = trainControl(method="cv", number=10), prox=TRUE,allowParallel=TRUE)
+
+BaggedTree.pred <- predict(baggedModel,newdata=df_test) 
+time.taken <- end.time - start.time
+confusionMatrix(BaggedTree.pred, scores_test)
+```
+Boost tree with gbm for regression
 
 ```{r}
 library(gbm)
-boost <- gbm(class~. , data=df_train, distribution = 'gaussian', 
+boost <- gbm(class~. , data=df_train[,-c(239)], distribution = 'gaussian', 
              n.trees = 5000,   interaction.depth = 4)
+
+boost.pred <- predict (boost, df_test, n.trees=5000)
+mean((boost.pred  == scores_test)
+     
+```
+ Alternative, select parameters with caret package
+
+```{r}
+     
+ctr <- trainControl(method = "cv", number = 10)
+
+boost.caret <- train(class~., df_train,  method='bstTree',
+                     preProc=c('center','scale'), trControl=ctr)
+boost.caret.pred <- predict(boost.caret, df_test)
 
 
 ```
@@ -139,3 +169,22 @@ best.iter <- gbm.perf(GBM_model,method="cv")
 
 train_pred <- predict.gbm(GBM_model,trainset,best.iter)
 test_pred <- predict.gbm(GBM_model,testset,best.iter)
+
+```
+Test AUC multiple classifier 
+```{r}
+library(ROCR)
+data(ROCR.hiv)
+attach(ROCR.hiv)
+pred.svm <- prediction(hiv.svm$predictions, hiv.svm$labels)
+perf.svm <- performance(pred.svm, 'tpr', 'fpr')
+pred.nn <- prediction(hiv.nn$predictions, hiv.svm$labels)
+perf.nn <- performance(pred.nn, 'tpr', 'fpr')
+plot(perf.svm, lty=3, col="red",main="SVMs and NNs for prediction of
+HIV-1 coreceptor usage")
+plot(perf.nn, lty=3, col="blue",add=TRUE)
+plot(perf.svm, avg="vertical", lwd=3, col="red",
+spread.estimate="stderror",plotCI.lwd=2,add=TRUE)
+plot(perf.nn, avg="vertical", lwd=3, col="blue",
+spread.estimate="stderror",plotCI.lwd=2,add=TRUE)
+legend(0.6,0.6,c('SVM','NN'),col=c('red','blue'),lwd=3)
